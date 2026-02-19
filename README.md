@@ -1,4 +1,4 @@
-# Go Training Challenges
+# Go Training Challenges 🚀
 
 Repositório destinado aos exercícios e projetos práticos da trilha de aprendizado em **Golang**.
 
@@ -41,3 +41,65 @@ go run converter_local/main.go 150 EUR
 go run converter_api/main.go 50 USD
 ```
 
+---
+
+## 2️⃣ Desafio 2: Currency Converter API (Clean Architecture)
+
+Uma API REST que recebe um valor em BRL e converte para moeda estrangeira.
+Este projeto aplica o padrão **Hexagonal (Ports and Adapters)**, separando completamente as Regras de Negócio (Domínio) da Infraestrutura (HTTP e APIs externas) através de **Injeção de Dependência**.
+
+### 📂 Estrutura
+
+```text
+api/
+├── domain/            # 🟡 Regra de negócio pura e Interfaces (Contratos)
+├── infra/             # 🔵 Adapters (Integração externa com a AwesomeAPI)
+├── handlers/          # 🔵 Delivery (Recebe e responde requisições HTTP)
+└── main.go            # ⚙️ Ponto de entrada e Injeção de Dependências
+```
+
+### ⚡ Como Rodar
+
+1. Entre no diretório da API:
+
+```bash
+cd api
+```
+
+2. Inicie o servidor (ele rodará na porta `:8080`):
+
+```bash
+go run .
+```
+
+### 🧪 Como Testar
+
+**Via cURL (Terminal):**
+
+```bash
+curl -X POST http://localhost:8080/converter \
+     -H "Content-Type: application/json" \
+     -d '{"moeda": "USD", "valor_brl": 100}'
+```
+
+**Via HTTP Client (Postman/Insomnia):**
+
+* **Método:** `POST`
+* **URL:** `http://localhost:8080/converter`
+* **Body (JSON):**
+```json
+{
+  "moeda": "EUR",
+  "valor_brl": 150.50
+}
+```
+
+
+
+### 🛠 Status Codes Implementados
+
+* `200 OK`: Conversão realizada com sucesso.
+* `400 Bad Request`: Corpo da requisição ausente ou JSON mal formatado.
+* `405 Method Not Allowed`: Tentativa de acesso com método diferente de POST.
+* `422 Unprocessable Entity`: Cotação da moeda solicitada não foi encontrada.
+* `500 Internal Server Error / 502 Bad Gateway`: Falha no servidor ou na API externa.
