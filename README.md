@@ -103,3 +103,19 @@ curl -X POST http://localhost:8080/converter \
 * `405 Method Not Allowed`: Tentativa de acesso com método diferente de POST.
 * `422 Unprocessable Entity`: Cotação da moeda solicitada não foi encontrada.
 * `500 Internal Server Error / 502 Bad Gateway`: Falha no servidor ou na API externa.
+
+### 🛡️ Testes Automatizados
+
+O projeto conta com uma suíte de testes unitários focada em garantir a confiabilidade da aplicação, cobrindo as regras de negócio (Domain) e a camada de entrega (Handlers).
+
+**Stack de Testes:**
+* **`testing` & `httptest`**: Pacotes nativos do Go para testes de mesa (Table-Driven) e simulação de requisições HTTP sem a necessidade de instanciar um servidor real.
+* **`testify/assert`**: Para asserções limpas e sem repetição de código.
+* **`testify/mock`**: Utilizado para criação de *Strict Mocks* (Mocks Estritos) globais e locais, isolando o comportamento de integrações externas e utilitários (como o Logger e a API de cotação).
+
+**Como rodar os testes:**
+
+Para executar toda a suíte de testes com detalhes dos cenários (verbose), utilize o comando na raiz da pasta `api`:
+
+```bash
+go test ./... -v

@@ -3,7 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"go-frete/api/domain"
+	"go-frete/api/internal/domain"
 	"go-frete/api/pkg/logger"
 	"net/http"
 )

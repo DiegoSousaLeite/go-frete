@@ -1,9 +1,9 @@
 package main
 
 import (
-	"go-frete/api/domain"
-	"go-frete/api/handler"
-	"go-frete/api/infra"
+	"go-frete/api/internal/domain"
+	"go-frete/api/internal/handler"
+	"go-frete/api/internal/infra"
 	"go-frete/api/pkg/logger"
 	"net/http"
 )
