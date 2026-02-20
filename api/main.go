@@ -4,22 +4,24 @@ import (
 	"go-frete/api/domain"
 	"go-frete/api/handler"
 	"go-frete/api/infra"
+	"go-frete/api/pkg/logger"
 	"net/http"
 )
 
 func main() {
-	// 1. Cria a Infraestrutura
+
+	// 1. Inicia o Logger Global
+	log := logger.New()
+	log.Info("Iniciando API de Conversão...")
+
+	// 2. Injeta as dependências
 	apiAdapter := infra.NewAwesomeAPIAdapter()
 
-	// 2. Cria o Caso de Uso, injetando o Adapter da API
-	usecase := domain.NewConverterUseCase(apiAdapter)
+	usecase := domain.NewConverterUseCase(apiAdapter, log)
 
-	// 3. Cria o Handler HTTP, injetando o Caso de Uso nele
-	httpHandler := handler.NewConverterHandler(usecase)
-
-	// 4. Configura as rotas e sobe o servidor
+	httpHandler := handler.NewConverterHandler(usecase, log)
 	http.HandleFunc("/converter", httpHandler.Handle)
 
-	println("Servidor rodando na porta 8080...")
+	log.Info("Servidor rodando", "porta", 8080)
 	http.ListenAndServe(":8080", nil)
 }
