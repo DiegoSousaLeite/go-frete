@@ -14,7 +14,7 @@ type RateProvider interface {
 // A estrutura do Caso de Uso
 type ConverterUseCase struct {
 	provider RateProvider
-	repo     ConversionRepository
+	repo     ConversionSaver
 	log      logger.Logger
 }
 
@@ -26,11 +26,11 @@ type ConversionRecord struct {
 	Data            time.Time `bson:"data" json:"data"`
 }
 
-type ConversionRepository interface {
+type ConversionSaver interface {
 	SaveHistory(record ConversionRecord) error
 }
 
-func NewConverterUseCase(p RateProvider, r ConversionRepository, l logger.Logger) *ConverterUseCase {
+func NewConverterUseCase(p RateProvider, r ConversionSaver, l logger.Logger) *ConverterUseCase {
 	return &ConverterUseCase{provider: p, repo: r, log: l}
 }
 

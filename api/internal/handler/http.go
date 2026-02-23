@@ -19,12 +19,14 @@ type Response struct {
 
 // O "Garçom" que atende o cliente
 type ConverterHandler struct {
-	usecase *domain.ConverterUseCase
-	log     logger.Logger
+	converterUseCase *domain.ConverterUseCase
+	listUseCase      *domain.ListConversionsUseCase
+	variationUseCase *domain.VariationUseCase
+	log              logger.Logger
 }
 
-func NewConverterHandler(uc *domain.ConverterUseCase, l logger.Logger) *ConverterHandler {
-	return &ConverterHandler{usecase: uc, log: l}
+func NewConverterHandler(uc *domain.ConverterUseCase, luc *domain.ListConversionsUseCase, vuc *domain.VariationUseCase, l logger.Logger) *ConverterHandler {
+	return &ConverterHandler{converterUseCase: uc, listUseCase: luc, variationUseCase: vuc, log: l}
 }
 
 func (h *ConverterHandler) Handle(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +54,7 @@ func (h *ConverterHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	h.log.Info("Dados validados com sucesso", "moeda", req.Moeda, "valor_brl", req.ValorBRL)
 
 	// CHAMA A REGRA DE NEGÓCIO
-	valorConvertido, err := h.usecase.Execute(req.Moeda, req.ValorBRL)
+	valorConvertido, err := h.converterUseCase.Execute(req.Moeda, req.ValorBRL)
 
 	if err != nil {
 		// Tratamento de erros customizados
@@ -72,4 +74,66 @@ func (h *ConverterHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(respo)
+}
+
+func (h *ConverterHandler) ListHandle(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			h.log.Error("Recuperado de pânico no list handler", "detalhe", rec)
+			http.Error(w, "Erro interno no servidor", http.StatusInternalServerError)
+		}
+	}()
+
+	h.log.Info("Recebendo requisição de listagem", "endpoint", r.URL.Path, "metodo", r.Method)
+
+	if r.Method != http.MethodGet {
+		h.log.Warn("Método HTTP não permitido para listagem", "metodo_recebido", r.Method)
+		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Chama a regra de negócio
+	records, err := h.listUseCase.Execute()
+	if err != nil {
+		h.log.Error("Falha ao processar listagem na regra de negócio", "erro", err.Error())
+		http.Error(w, "Erro ao buscar histórico", http.StatusInternalServerError)
+		return
+	}
+
+	h.log.Info("Listagem finalizada com sucesso")
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(records)
+}
+
+func (h *ConverterHandler) VariationHandle(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			h.log.Error("Recuperado de pânico no variation handler", "detalhe", rec)
+			http.Error(w, "Erro interno no servidor", http.StatusInternalServerError)
+		}
+	}()
+
+	// Captura a variável {moeda} da URL
+	moeda := r.PathValue("moeda")
+
+	if moeda == "" {
+		h.log.Warn("Moeda não informada na rota")
+		http.Error(w, "Moeda deve ser informada na rota (ex: /variation/JPY)", http.StatusBadRequest)
+		return
+	}
+
+	h.log.Info("Recebendo requisição de variação", "moeda", moeda)
+
+	variations, err := h.variationUseCase.Execute(moeda)
+	if err != nil {
+		h.log.Error("Falha ao calcular variação", "erro", err.Error())
+		http.Error(w, "Erro ao buscar variações", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(variations)
 }

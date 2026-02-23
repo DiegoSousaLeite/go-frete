@@ -10,6 +10,7 @@ Uma CLI (Command Line Interface) para conversão de moedas (BRL -> Moeda Estrang
 Este exercício explora conceitos fundamentais como **Leitura de Arquivos**, **JSON Parsing**, **Maps**, **Structs** e **HTTP Requests**.
 
 ### 📂 Estrutura
+
 ```text
 cli/
 ├── converter_local/  # Versão Offline (Lê taxas do arquivo rates.json)
@@ -45,20 +46,30 @@ go run converter_api/main.go 50 USD
 
 ## 2️⃣ Desafio 2: Currency Converter API (Clean Architecture)
 
-Uma API REST que recebe um valor em BRL e converte para moeda estrangeira.
-Este projeto aplica o padrão **Hexagonal (Ports and Adapters)**, separando completamente as Regras de Negócio (Domínio) da Infraestrutura (HTTP e APIs externas) através de **Injeção de Dependência**.
+Uma API REST completa para conversão de moedas, armazenamento de histórico e cálculo de variações ao longo do tempo.
+
+Este projeto aplica o padrão **Hexagonal (Ports and Adapters)** e **SOLID** (Segregação de Interfaces), separando completamente as Regras de Negócio (Domínio) da Infraestrutura (HTTP, MongoDB e APIs externas) através de **Injeção de Dependência**.
 
 ### 📂 Estrutura
 
 ```text
 api/
-├── domain/            # 🟡 Regra de negócio pura e Interfaces (Contratos)
-├── infra/             # 🔵 Adapters (Integração externa com a AwesomeAPI)
-├── handlers/          # 🔵 Delivery (Recebe e responde requisições HTTP)
-└── main.go            # ⚙️ Ponto de entrada e Injeção de Dependências
+├── internal/
+│   ├── domain/     # Regras de negócio (UseCases) e Contratos (Interfaces segregadas)
+│   ├── infra/      # Adapters (Integração com AwesomeAPI e MongoDB)
+│   └── handler/    # Delivery (Controladores HTTP)
+├── pkg/
+│   └── logger/     # Utilitários compartilhados (Wrapper do Zap Logger)
+├── tests/
+│   └── mocks/      # Mocks globais compartilhados para testes
+├── docker-compose.yaml
+├── Dockerfile
+└── main.go         # Ponto de entrada (Montador de Dependências)
 ```
 
-### ⚡ Como Rodar
+### ⚡ Como Rodar (Docker)
+
+Como o projeto agora depende de um banco de dados MongoDB, a melhor forma de executá-lo é via Docker Compose.
 
 1. Entre no diretório da API:
 
@@ -66,15 +77,19 @@ api/
 cd api
 ```
 
-2. Inicie o servidor (ele rodará na porta `:8080`):
+2. Suba a aplicação e o banco de dados (o servidor rodará na porta `:8080` com *hot-reload* via Air):
 
 ```bash
-go run .
+docker compose up -d --build
 ```
 
-### 🧪 Como Testar
+*(Para ver os logs do sistema e do banco, utilize `docker compose logs -f app`)*
 
-**Via cURL (Terminal):**
+### 🧪 Endpoints e Como Testar
+
+#### 1. Realizar Conversão (`POST /converter`)
+
+Converte um valor em BRL para a moeda solicitada e salva o histórico no banco de dados.
 
 ```bash
 curl -X POST http://localhost:8080/converter \
@@ -82,40 +97,53 @@ curl -X POST http://localhost:8080/converter \
      -d '{"moeda": "USD", "valor_brl": 100}'
 ```
 
-**Via HTTP Client (Postman/Insomnia):**
+#### 2. Listar Histórico (`GET /convert/list`)
 
-* **Método:** `POST`
-* **URL:** `http://localhost:8080/converter`
-* **Body (JSON):**
-```json
-{
-  "moeda": "EUR",
-  "valor_brl": 150.50
-}
+Retorna as últimas 10 conversões realizadas e salvas no banco de dados.
+
+```bash
+curl -X GET http://localhost:8080/convert/list
 ```
 
+#### 3. Calcular Variação (`GET /variation/{moeda}`)
 
+Busca todo o histórico de conversões de uma moeda específica e calcula a variação financeira e percentual entre cada operação no tempo.
+
+```bash
+curl -X GET http://localhost:8080/variation/USD
+```
 
 ### 🛠 Status Codes Implementados
 
-* `200 OK`: Conversão realizada com sucesso.
-* `400 Bad Request`: Corpo da requisição ausente ou JSON mal formatado.
-* `405 Method Not Allowed`: Tentativa de acesso com método diferente de POST.
-* `422 Unprocessable Entity`: Cotação da moeda solicitada não foi encontrada.
-* `500 Internal Server Error / 502 Bad Gateway`: Falha no servidor ou na API externa.
+* `200 OK`: Operação realizada com sucesso.
+* `400 Bad Request`: Corpo da requisição ausente, JSON mal formatado ou moeda não informada na rota.
+* `405 Method Not Allowed`: Tentativa de acesso com método HTTP incorreto.
+* `422 Unprocessable Entity`: Cotação da moeda solicitada não foi encontrada na API externa.
+* `500 Internal Server Error / 502 Bad Gateway`: Falha interna no servidor, no banco de dados (MongoDB) ou na API externa.
 
-### 🛡️ Testes Automatizados
+### 🛡️ Testes Automatizados (100% Coverage)
 
-O projeto conta com uma suíte de testes unitários focada em garantir a confiabilidade da aplicação, cobrindo as regras de negócio (Domain) e a camada de entrega (Handlers).
+O projeto conta com uma suíte de testes unitários focada em garantir a confiabilidade da aplicação, cobrindo as regras de negócio (Domain) e a camada de entrega (Handlers), com **100% de cobertura na camada de aplicação**.
 
 **Stack de Testes:**
-* **`testing` & `httptest`**: Pacotes nativos do Go para testes de mesa (Table-Driven) e simulação de requisições HTTP sem a necessidade de instanciar um servidor real.
-* **`testify/assert`**: Para asserções limpas e sem repetição de código.
-* **`testify/mock`**: Utilizado para criação de *Strict Mocks* (Mocks Estritos) globais e locais, isolando o comportamento de integrações externas e utilitários (como o Logger e a API de cotação).
 
-**Como rodar os testes:**
+* **`testing` & `httptest`**: Pacotes nativos do Go para testes de mesa (Table-Driven) e simulação de requisições HTTP (incluindo variáveis de path do Go 1.22+).
+* **`testify/assert`**: Para asserções limpas e legíveis.
+* **`testify/mock`**: Utilizado para criação de *Strict Mocks* globais e locais, isolando o comportamento de integrações externas (MongoDB, APIs, Logs).
 
-Para executar toda a suíte de testes com detalhes dos cenários (verbose), utilize o comando na raiz da pasta `api`:
+**Como rodar os testes localmente:**
+
+1. Executar todos os testes com detalhes dos cenários (verbose):
 
 ```bash
 go test ./... -v
+```
+
+2. Gerar relatório de cobertura de código (Coverage):
+
+```bash
+go test ./... -coverprofile=coverage.out
+go tool cover -html=coverage.out
+```
+
+*(Isso abrirá uma página HTML no seu navegador mostrando exatamente quais linhas de código foram cobertas pelos testes).*

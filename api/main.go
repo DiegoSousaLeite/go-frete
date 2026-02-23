@@ -12,7 +12,6 @@ func main() {
 	log := logger.New()
 	log.Info("Iniciando API de Conversão...")
 
-	// 1. Inicia o MongoDB
 	mongoURI := "mongodb://root:example@mongodb:27017"
 	mongoAdapter, err := infra.NewMongoDBAdapter(mongoURI, "currency_db")
 	if err != nil {
@@ -20,16 +19,20 @@ func main() {
 	}
 	log.Info("Conectado ao MongoDB com sucesso!")
 
-	// 2. Inicia o Adapter da API Externa
 	apiAdapter := infra.NewAwesomeAPIAdapter()
 
-	// 3. Injeta TUDO no UseCase
+	// 1. Injeta os 3 Casos de Uso!
 	usecase := domain.NewConverterUseCase(apiAdapter, mongoAdapter, log)
+	listUseCase := domain.NewListConversionsUseCase(mongoAdapter, log)
+	variationUseCase := domain.NewVariationUseCase(mongoAdapter, log)
 
-	// 4. Injeta o UseCase no Handler
-	httpHandler := handler.NewConverterHandler(usecase, log)
+	// 2. Injeta no Handler
+	httpHandler := handler.NewConverterHandler(usecase, listUseCase, variationUseCase, log)
 
-	http.HandleFunc("/converter", httpHandler.Handle)
+	// 3. Rotas com suporte a variáveis de Path
+	http.HandleFunc("POST /converter", httpHandler.Handle)
+	http.HandleFunc("GET /convert/list", httpHandler.ListHandle)
+	http.HandleFunc("GET /variation/{moeda}", httpHandler.VariationHandle)
 
 	log.Info("Servidor rodando", "porta", 8080)
 	http.ListenAndServe(":8080", nil)
