@@ -77,6 +77,14 @@ func TestConverterHandler_Handle(t *testing.T) {
 			name: "should return 422 Unprocessable Entity when currency is not found",
 			run:  shouldReturn422UnprocessableEntity,
 		},
+		{
+			name: "should return 502 Bad Gateway when usecase returns generic error",
+			run:  shouldReturn502BadGatewayForGenericError,
+		},
+		{
+			name: "should recover from panic and return 500",
+			run:  shouldRecoverFromPanicInHandle,
+		},
 	}
 
 	for _, tt := range tests {
@@ -165,6 +173,43 @@ func shouldReturn422UnprocessableEntity(t *testing.T) {
 	assert.Equal(t, http.StatusUnprocessableEntity, recorder.Code)
 }
 
+func shouldReturn502BadGatewayForGenericError(t *testing.T) {
+	providerMock := new(rateProviderMock)
+	repoMock := new(repositoryMock)
+	loggerMock := new(loggermock.LoggerMock)
+
+	loggerMock.On("Info", mock.Anything, mock.Anything).Return()
+	loggerMock.On("Error", mock.Anything, mock.Anything).Return()
+
+	providerMock.On("GetRate", "USD").Return(0.0, errors.New("timeout na api externa"))
+
+	usecase := domain.NewConverterUseCase(providerMock, repoMock, loggerMock)
+	handler := NewConverterHandler(usecase, nil, nil, loggerMock)
+
+	body := []byte(`{"moeda": "USD", "valor_brl": 100.0}`)
+	req, _ := http.NewRequest(http.MethodPost, "/converter", bytes.NewBuffer(body))
+	recorder := httptest.NewRecorder()
+
+	handler.Handle(recorder, req)
+
+	assert.Equal(t, http.StatusBadGateway, recorder.Code)
+}
+
+func shouldRecoverFromPanicInHandle(t *testing.T) {
+	loggerMock := new(loggermock.LoggerMock)
+	loggerMock.On("Info", mock.Anything, mock.Anything).Return()
+
+	handler := NewConverterHandler(nil, nil, nil, loggerMock)
+
+	body := []byte(`{"moeda": "USD", "valor_brl": 100.0}`)
+	req, _ := http.NewRequest(http.MethodPost, "/converter", bytes.NewBuffer(body))
+	recorder := httptest.NewRecorder()
+
+	handler.Handle(recorder, req)
+
+	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+}
+
 func TestConverterHandler_ListHandle(t *testing.T) {
 	tests := []struct {
 		name string
@@ -181,6 +226,10 @@ func TestConverterHandler_ListHandle(t *testing.T) {
 		{
 			name: "should return 500 Internal Server Error when database fails",
 			run:  shouldReturn500WhenDatabaseFailsForList,
+		},
+		{
+			name: "should recover from panic and return 500",
+			run:  shouldRecoverFromPanicInListHandle,
 		},
 	}
 
@@ -246,6 +295,21 @@ func shouldReturn500WhenDatabaseFailsForList(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 }
 
+func shouldRecoverFromPanicInListHandle(t *testing.T) {
+	loggerMock := new(loggermock.LoggerMock)
+	loggerMock.On("Info", mock.Anything, mock.Anything).Return()
+	loggerMock.On("Error", mock.Anything, mock.Anything).Return()
+
+	handler := NewConverterHandler(nil, nil, nil, loggerMock)
+
+	req, _ := http.NewRequest(http.MethodGet, "/convert/list", nil)
+	recorder := httptest.NewRecorder()
+
+	handler.ListHandle(recorder, req)
+
+	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+}
+
 func TestConverterHandler_VariationHandle(t *testing.T) {
 	tests := []struct {
 		name string
@@ -262,6 +326,10 @@ func TestConverterHandler_VariationHandle(t *testing.T) {
 		{
 			name: "should return 500 when database fails",
 			run:  shouldReturn500ForVariationError,
+		},
+		{
+			name: "should recover from panic and return 500",
+			run:  shouldRecoverFromPanicInVariationHandle,
 		},
 	}
 
@@ -322,6 +390,23 @@ func shouldReturn500ForVariationError(t *testing.T) {
 	req.SetPathValue("moeda", "EUR")
 
 	recorder := httptest.NewRecorder()
+	handler.VariationHandle(recorder, req)
+
+	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+}
+
+func shouldRecoverFromPanicInVariationHandle(t *testing.T) {
+	loggerMock := new(loggermock.LoggerMock)
+	loggerMock.On("Info", mock.Anything, mock.Anything).Return()
+	loggerMock.On("Error", mock.Anything, mock.Anything).Return()
+
+	handler := NewConverterHandler(nil, nil, nil, loggerMock)
+
+	req, _ := http.NewRequest(http.MethodGet, "/variation/USD", nil)
+	req.SetPathValue("moeda", "USD")
+
+	recorder := httptest.NewRecorder()
+
 	handler.VariationHandle(recorder, req)
 
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
