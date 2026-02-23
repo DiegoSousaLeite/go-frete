@@ -9,17 +9,26 @@ import (
 )
 
 func main() {
-
-	// 1. Inicia o Logger Global
 	log := logger.New()
 	log.Info("Iniciando API de Conversão...")
 
-	// 2. Injeta as dependências
+	// 1. Inicia o MongoDB
+	mongoURI := "mongodb://root:example@mongodb:27017"
+	mongoAdapter, err := infra.NewMongoDBAdapter(mongoURI, "currency_db")
+	if err != nil {
+		log.Fatal("Falha ao conectar no MongoDB", "erro", err.Error())
+	}
+	log.Info("Conectado ao MongoDB com sucesso!")
+
+	// 2. Inicia o Adapter da API Externa
 	apiAdapter := infra.NewAwesomeAPIAdapter()
 
-	usecase := domain.NewConverterUseCase(apiAdapter, log)
+	// 3. Injeta TUDO no UseCase
+	usecase := domain.NewConverterUseCase(apiAdapter, mongoAdapter, log)
 
+	// 4. Injeta o UseCase no Handler
 	httpHandler := handler.NewConverterHandler(usecase, log)
+
 	http.HandleFunc("/converter", httpHandler.Handle)
 
 	log.Info("Servidor rodando", "porta", 8080)

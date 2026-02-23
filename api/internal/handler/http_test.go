@@ -23,6 +23,15 @@ func (m *rateProviderMock) GetRate(moeda string) (float64, error) {
 	return args.Get(0).(float64), args.Error(1)
 }
 
+type repositoryMock struct {
+	mock.Mock
+}
+
+func (m *repositoryMock) SaveHistory(record domain.ConversionRecord) error {
+	args := m.Called(record)
+	return args.Error(0)
+}
+
 func TestConverterHandler_Handle(t *testing.T) {
 	tests := []struct {
 		name string
@@ -53,13 +62,15 @@ func TestConverterHandler_Handle(t *testing.T) {
 
 func shouldReturn200OkWithValidJson(t *testing.T) {
 	providerMock := new(rateProviderMock)
+	repoMock := new(repositoryMock)
 	loggerMock := new(loggermock.LoggerMock)
 
 	loggerMock.On("Info", mock.Anything, mock.Anything).Return()
 
 	providerMock.On("GetRate", "USD").Return(5.0, nil)
+	repoMock.On("SaveHistory", mock.Anything).Return(nil)
 
-	usecase := domain.NewConverterUseCase(providerMock, loggerMock)
+	usecase := domain.NewConverterUseCase(providerMock, repoMock, loggerMock)
 	handler := NewConverterHandler(usecase, loggerMock)
 
 	body := []byte(`{"moeda": "USD", "valor_brl": 100.0}`)
@@ -105,6 +116,7 @@ func shouldReturn405MethodNotAllowed(t *testing.T) {
 
 func shouldReturn422UnprocessableEntity(t *testing.T) {
 	providerMock := new(rateProviderMock)
+	repoMock := new(repositoryMock)
 	loggerMock := new(loggermock.LoggerMock)
 
 	loggerMock.On("Info", mock.Anything, mock.Anything).Return()
@@ -113,7 +125,7 @@ func shouldReturn422UnprocessableEntity(t *testing.T) {
 
 	providerMock.On("GetRate", "XYZ").Return(0.0, errors.New("moeda_nao_encontrada"))
 
-	usecase := domain.NewConverterUseCase(providerMock, loggerMock)
+	usecase := domain.NewConverterUseCase(providerMock, repoMock, loggerMock)
 	handler := NewConverterHandler(usecase, loggerMock)
 
 	body := []byte(`{"moeda": "XYZ", "valor_brl": 100.0}`)

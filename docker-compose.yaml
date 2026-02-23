@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    volumes:
+      - .:/app
+    ports:
+      - "8080:8080"
+    environment:
+      - AIR_ENV=dev
+  mongodb:
+    image: mongo:6-jammy
+    container_name: currency_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./tmp/mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
